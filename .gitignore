@@ -1,6 +1,18 @@
-bin/
-obj/
+# Compiled binaries
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+
+# Visual Studio / build folders
+*.user
 .vs/
 vcpkg_installed/
 build/
-*.user
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
