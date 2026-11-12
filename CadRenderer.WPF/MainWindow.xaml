@@ -1,0 +1,218 @@
+<Window x:Class="CadRenderer.WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:CadRenderer.WPF"
+        Title="CAD Renderer - OpenGL" Width="1400" Height="880"
+        WindowStartupLocation="CenterScreen">
+
+    <!--
+      LAYOUT
+        left   : control panel (scene tree, view, display, lighting, grid)
+        bottom : status bar
+        rest   : the OpenGL viewport (a native child window, see GLViewportHost.cs)
+
+      WPF content cannot be drawn on top of the viewport ("airspace"), so every
+      control lives beside it rather than floating over it.
+    -->
+    <Window.Resources>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Margin" Value="0,2,4,2"/>
+            <Setter Property="Padding" Value="8,3"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,4,0,1"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock x:Name="StatusText" Text="Starting OpenGL..."/>
+        </StatusBar>
+
+        <ScrollViewer DockPanel.Dock="Left" Width="310" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8">
+
+                <!-- ================= SCENE TREE ================= -->
+                <GroupBox Header="Scene (tick = show)">
+                    <StackPanel>
+                        <!-- Each row is a node of the native scene graph. Unticking a
+                             group hides everything beneath it. -->
+                        <TreeView x:Name="SceneTree" Height="170" SelectedItemChanged="OnTreeSelectionChanged">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem">
+                                    <Setter Property="IsExpanded" Value="True"/>
+                                    <!-- lets code select a row: see SceneItem.IsSelected -->
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate DataType="{x:Type local:SceneItem}"
+                                                          ItemsSource="{Binding Children}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                  VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" Margin="4,0,6,0"/>
+                                        <TextBlock Text="{Binding Kind}" Foreground="Gray" FontSize="10"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                        <WrapPanel Margin="0,4,0,0">
+                            <Button Content="Open STL..." Click="OnOpenStl"/>
+                            <Button Content="+ Group" Click="OnAddGroup"/>
+                            <Button Content="+ Box (B-Rep)" Click="OnAddBox"/>
+                            <Button Content="+ Point cloud" Click="OnAddPointCloud"/>
+                            <Button Content="Remove selected" Click="OnRemoveSelected"/>
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Material of the item selected above (applies when picked)"/>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Apply" Margin="4,0,0,0" Click="OnApplyMaterial"/>
+                            <ComboBox x:Name="MaterialBox" SelectedIndex="0" SelectionChanged="OnApplyMaterial">
+                                <ComboBoxItem Content="Steel"/>
+                                <ComboBoxItem Content="Aluminium"/>
+                                <ComboBoxItem Content="Brass"/>
+                                <ComboBoxItem Content="Glass (transparent)"/>
+                                <ComboBoxItem Content="Red plastic"/>
+                                <ComboBoxItem Content="Green plastic"/>
+                                <ComboBoxItem Content="Blue plastic"/>
+                                <ComboBoxItem Content="Orange plastic"/>
+                            </ComboBox>
+                        </DockPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ================= VIEW ================= -->
+                <GroupBox Header="View">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Projection"/>
+                        <ComboBox x:Name="ProjectionBox" SelectedIndex="1" SelectionChanged="OnProjectionChanged">
+                            <ComboBoxItem Content="Orthographic"/>
+                            <ComboBoxItem Content="Perspective (free)"/>
+                            <ComboBoxItem Content="Perspective - 1 vanishing point"/>
+                            <ComboBoxItem Content="Perspective - 2 vanishing points"/>
+                        </ComboBox>
+                        <WrapPanel Margin="0,6,0,0">
+                            <!-- Tag = name of a CadBridge.StandardViewKind value -->
+                            <Button Content="Iso" Tag="Isometric" Click="OnStandardView"/>
+                            <Button Content="Front" Tag="Front" Click="OnStandardView"/>
+                            <Button Content="Back" Tag="Back" Click="OnStandardView"/>
+                            <Button Content="Left" Tag="Left" Click="OnStandardView"/>
+                            <Button Content="Right" Tag="Right" Click="OnStandardView"/>
+                            <Button Content="Top" Tag="Top" Click="OnStandardView"/>
+                            <Button Content="Bottom" Tag="Bottom" Click="OnStandardView"/>
+                            <Button Content="Fit all" FontWeight="Bold" Click="OnFitAll"/>
+                        </WrapPanel>
+                        <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Mouse: left drag = orbit, middle drag (or Shift + left drag) = pan, wheel = zoom. Click = select, Ctrl + click = add to the selection, Shift + click = remove from it, click on empty space = deselect all. Right button: reserved for a context menu."/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ================= SELECTION ================= -->
+                <GroupBox Header="Selection">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Pick types (tick one or more)"/>
+                        <!-- A combo box whose rows are check boxes = multi-select.
+                             IsEditable + IsReadOnly lets the code-behind show its own
+                             summary text ("Vertex, Edge") in the closed box. -->
+                        <ComboBox x:Name="PickTypesBox" IsEditable="True" IsReadOnly="True"
+                                  Text="Vertex, Edge, Face, Solid"
+                                  SelectionChanged="OnPickComboRowClicked">
+                            <CheckBox x:Name="PickNothingCheck" Content="(nothing)" Click="OnPickTypeToggled"/>
+                            <CheckBox x:Name="PickVertexCheck" Content="Vertex" IsChecked="True" Click="OnPickTypeToggled"/>
+                            <CheckBox x:Name="PickEdgeCheck" Content="Edge" IsChecked="True" Click="OnPickTypeToggled"/>
+                            <CheckBox x:Name="PickFaceCheck" Content="Face" IsChecked="True" Click="OnPickTypeToggled"/>
+                            <CheckBox x:Name="PickSolidCheck" Content="Solid" IsChecked="True" Click="OnPickTypeToggled"/>
+                        </ComboBox>
+                        <TextBlock Foreground="Gray" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="The most specific ticked type under the mouse is picked: vertex (within 0.5 mm), then edge (within 0.5 mm), then face, then solid. With (nothing), no entity can be picked and the pointer shows a red sign over parts."/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ================= DISPLAY ================= -->
+                <GroupBox Header="Display">
+                    <StackPanel>
+                        <ComboBox x:Name="DisplayBox" SelectedIndex="1" SelectionChanged="OnDisplayChanged">
+                            <ComboBoxItem Content="Shaded"/>
+                            <ComboBoxItem Content="Shaded with edges"/>
+                            <ComboBoxItem Content="Wireframe"/>
+                        </ComboBox>
+                        <CheckBox x:Name="BoldEdgesCheck" Content="Bold edges" Margin="0,6,0,0" Click="OnDisplayChanged"/>
+                        <CheckBox x:Name="AxesCheck" Content="Axis arrows at the origin" IsChecked="True"
+                                  Margin="0,4,0,0" Click="OnGridChanged"/>
+                        <CheckBox x:Name="GridCheck" Content="Grid in the XY plane" IsChecked="True"
+                                  Margin="0,4,0,0" Click="OnGridChanged"/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Grid size (finest lines every 1 mm)"/>
+                        <ComboBox x:Name="GridSizeBox" SelectedIndex="0" SelectionChanged="OnGridChanged">
+                            <ComboBoxItem Content="1 m x 1 m  (1000 mm)"/>
+                            <ComboBoxItem Content="10 m x 10 m  (10000 mm)"/>
+                        </ComboBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- ================= LIGHTING ================= -->
+                <GroupBox Header="Lighting">
+                    <StackPanel>
+                        <!-- The two lighting configurations -->
+                        <RadioButton x:Name="AmbientOnlyRadio" GroupName="LightMode"
+                                     Content="1. Ambient light only (no light sources)" Click="OnLightingChanged"/>
+                        <RadioButton x:Name="TwoLightsRadio" GroupName="LightMode" IsChecked="True" Margin="0,3,0,0"
+                                     Content="2. Two lights (position + direction)" Click="OnLightingChanged"/>
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Lighting terms"/>
+                        <WrapPanel>
+                            <CheckBox x:Name="AmbientTermCheck" Content="Ambient" IsChecked="True" Margin="0,0,10,0" Click="OnLightingChanged"/>
+                            <CheckBox x:Name="DiffuseTermCheck" Content="Diffuse" IsChecked="True" Margin="0,0,10,0" Click="OnLightingChanged"/>
+                            <CheckBox x:Name="SpecularTermCheck" Content="Specular" IsChecked="True" Click="OnLightingChanged"/>
+                        </WrapPanel>
+
+                        <!-- Light inputs are only used by configuration 2. Values are
+                             "x, y, z" in millimetres (position) or a direction vector. -->
+                        <StackPanel x:Name="LightInputsPanel">
+                            <TextBlock Text="Light 1" FontWeight="Bold" Margin="0,8,0,0"/>
+                            <ComboBox x:Name="Light1TypeBox" SelectedIndex="2">
+                                <ComboBoxItem Content="Directional (direction only)"/>
+                                <ComboBoxItem Content="Point (position only)"/>
+                                <ComboBoxItem Content="Spot (position + direction)"/>
+                            </ComboBox>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Position x, y, z (mm)"/>
+                            <TextBox x:Name="Light1PosBox" Text="600, -700, 900"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Direction x, y, z (where it shines)"/>
+                            <TextBox x:Name="Light1DirBox" Text="-600, 700, -900"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Intensity"/>
+                            <TextBox x:Name="Light1IntensityBox" Text="0.85"/>
+
+                            <TextBlock Text="Light 2" FontWeight="Bold" Margin="0,8,0,0"/>
+                            <ComboBox x:Name="Light2TypeBox" SelectedIndex="2">
+                                <ComboBoxItem Content="Directional (direction only)"/>
+                                <ComboBoxItem Content="Point (position only)"/>
+                                <ComboBoxItem Content="Spot (position + direction)"/>
+                            </ComboBox>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Position x, y, z (mm)"/>
+                            <TextBox x:Name="Light2PosBox" Text="-700, 500, 400"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Direction x, y, z (where it shines)"/>
+                            <TextBox x:Name="Light2DirBox" Text="700, -500, -400"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Intensity"/>
+                            <TextBox x:Name="Light2IntensityBox" Text="0.40"/>
+
+                            <Button Content="Apply lights" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                    Click="OnLightingChanged"/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- The OpenGL viewport fills the remaining space. -->
+        <local:GLViewportHost x:Name="ViewportHost"/>
+
+    </DockPanel>
+</Window>

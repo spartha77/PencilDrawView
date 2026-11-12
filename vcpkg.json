@@ -1,0 +1,8 @@
+{
+  "name": "cadgl",
+  "version-string": "1.0.0",
+  "description": "Native dependencies of the CadGL solution. GLEW loads the OpenGL 4.x entry points.",
+  "dependencies": [
+    "glew"
+  ]
+}

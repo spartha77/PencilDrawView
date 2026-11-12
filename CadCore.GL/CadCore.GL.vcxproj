@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CadCore.GL - native OpenGL engine, built as a STATIC LIBRARY.
+  It is linked into CadBridge.CLI.dll, so nothing extra has to be deployed.
+
+  Toolset: v145 = Visual Studio 2026. For Visual Studio 2022 change both
+  <PlatformToolset> entries to v143.
+
+  GLEW comes from vcpkg (see vcpkg.json in the solution folder and README.md).
+  /MD(d) runtime is required because the library is linked into a /clr DLL.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{6F1B0C2E-4D3A-4B8E-9C1F-2A7D5E8B9C01}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>CadCoreGL</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+    <VcpkgTriplet>x64-windows-static-md</VcpkgTriplet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)platform;$(GLEW_231_ROOT)Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- GLEW_STATIC: GLEW is linked statically (no glew32.dll to deploy). -->
+      <PreprocessorDefinitions>GLEW_STATIC;NOMINMAX;WIN32_LEAN_AND_MEAN;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Lib>
+      <AdditionalLibraryDirectories>$(GLEW_231_ROOT)lib\Release\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glew32s.lib;</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Lib>
+      <AdditionalLibraryDirectories>$(GLEW_231_ROOT)lib\Release\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glew32s.lib;</AdditionalDependencies>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="include\CadCore\Camera.h" />
+    <ClInclude Include="include\CadCore\GLContext.h" />
+    <ClInclude Include="include\CadCore\GpuObjects.h" />
+    <ClInclude Include="include\CadCore\Light.h" />
+    <ClInclude Include="include\CadCore\Material.h" />
+    <ClInclude Include="include\CadCore\Math.h" />
+    <ClInclude Include="include\CadCore\MeshNode.h" />
+    <ClInclude Include="include\CadCore\PointCloudNode.h" />
+    <ClInclude Include="include\CadCore\Renderer.h" />
+    <ClInclude Include="include\CadCore\Scene.h" />
+    <ClInclude Include="include\CadCore\SceneNode.h" />
+    <ClInclude Include="include\CadCore\ShaderProgram.h" />
+    <ClInclude Include="include\CadCore\Shaders.h" />
+    <ClInclude Include="include\CadCore\StlLoader.h" />
+    <ClInclude Include="include\CadCore\Viewer.h" />
+    <ClInclude Include="platform\WglContext.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Renderer.cpp" />
+    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SceneNodes.cpp" />
+    <ClCompile Include="src\ShaderProgram.cpp" />
+    <ClCompile Include="src\StlLoader.cpp" />
+    <ClCompile Include="src\Viewer.cpp" />
+    <ClCompile Include="platform\WglContext.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Not built by Visual Studio: cross-platform build file and GLFW test host. -->
+    <None Include="CMakeLists.txt" />
+    <None Include="examples\glfw_viewer.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
