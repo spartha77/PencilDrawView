@@ -13,19 +13,19 @@
 
 namespace CadCore {
 
-   class IGLContext {
-      public:
-      virtual ~IGLContext() = default;
+class IGLContext {
+public:
+    virtual ~IGLContext() = default;
 
-      /// Makes this context current on the calling thread.
-      virtual void MakeCurrent() = 0;
+    /// Makes this context current on the calling thread.
+    virtual void MakeCurrent() = 0;
 
-      /// Presents the back buffer of the window this context draws into.
-      virtual void SwapBuffers() = 0;
+    /// Presents the back buffer of the window this context draws into.
+    virtual void SwapBuffers() = 0;
 
-      /// Called when the window changed size. Some drivers only notice the new
-      /// size of the window's back buffer when the context is bound again.
-      virtual void OnWindowResized() {}
-   };
+    /// Called when the window changed size. Some drivers only notice the new
+    /// size of the window's back buffer when the context is bound again.
+    virtual void OnWindowResized() {}
+};
 
 } // namespace CadCore

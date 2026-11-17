@@ -1,18 +1,10 @@
-# Compiled binaries
-*.exe
-*.dll
-*.lib
-*.exp
-*.pdb
-
-# Visual Studio / build folders
-*.user
+bin/
+obj/
 .vs/
 vcpkg_installed/
 build/
-bin/
-obj/
-Debug/
-Release/
-x64/
-x86/
+*.user
+glew-2.3.1/lib/
+glew-2.3.1/bin/
+glew-2.3.1/build/**/tmp/
+glew-2.3.1/auto/

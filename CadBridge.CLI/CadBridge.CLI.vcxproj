@@ -30,8 +30,8 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
-    <VcpkgEnableManifest>true</VcpkgEnableManifest>
-    <VcpkgTriplet>x64-windows-static-md</VcpkgTriplet>
+    <!-- GLEW is taken from the glew-2.3.1 folder (see the user macros below), not from vcpkg. -->
+    <VcpkgEnabled>false</VcpkgEnabled>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -52,6 +52,18 @@
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <!--
+    GLEW location. GLEW is expected in a folder "glew-2.3.1" next to CadGL.sln:
+        glew-2.3.1\include\GL\glew.h
+        glew-2.3.1\lib\Debug\x64\glew32sd.lib  (and glew32d.lib)
+        glew-2.3.1\lib\Release\x64\glew32s.lib (and glew32.lib)
+    Another GLEW version or place: change the two macros here (or in
+    Property Manager > User Macros). The same two macros are in both C++ projects.
+  -->
+  <PropertyGroup Label="UserMacros">
+    <GLEW_INCLUDES>$(SolutionDir)glew-2.3.1\include</GLEW_INCLUDES>
+    <GLEW_LIB_INCLUDES>$(SolutionDir)glew-2.3.1\lib\$(Configuration)\$(Platform)</GLEW_LIB_INCLUDES>
+  </PropertyGroup>
   <PropertyGroup>
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
@@ -61,15 +73,15 @@
       <WarningLevel>Level3</WarningLevel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <!-- Headers of the native engine. -->
-      <AdditionalIncludeDirectories>$(GLEW_231_ROOT)Include;$(SolutionDir)CadCore.GL\include;$(SolutionDir)CadCore.GL\platform;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Headers of the native engine, and GLEW's (the engine's headers include GL/glew.h). -->
+      <AdditionalIncludeDirectories>$(SolutionDir)CadCore.GL\include;$(SolutionDir)CadCore.GL\platform;$(ProjectDir);$(GLEW_INCLUDES);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>GLEW_STATIC;NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <!-- System OpenGL + the Win32 libraries used by the WGL context.
-           The GLEW library is added automatically by vcpkg. -->
-      <AdditionalDependencies>opengl32.lib;glew32s.lib;gdi32.lib;user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+           The GLEW library is already inside CadCore.GL.lib. -->
+      <AdditionalDependencies>opengl32.lib;gdi32.lib;user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -77,18 +89,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>$(GLEW_231_ROOT)lib\Release\$(Platform)\</AdditionalLibraryDirectories>
-    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>$(GLEW_231_ROOT)lib\Release\$(Platform)\</AdditionalLibraryDirectories>
-    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CadViewport.h" />

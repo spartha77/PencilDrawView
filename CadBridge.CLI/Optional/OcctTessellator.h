@@ -20,12 +20,12 @@
 #include <vector>
 
 struct BRepTessellation {
-   std::vector<float>         positions;     // x,y,z per vertex
-   std::vector<float>         normals;       // x,y,z per vertex
-   std::vector<std::uint32_t> indices;       // three per triangle
-   std::vector<float>         edgeSegments;  // x,y,z,x,y,z per line segment
-   std::vector<std::uint32_t> faceOfTriangle;  // B-Rep face number of every triangle
-   std::vector<float>         vertices;        // x,y,z per B-Rep vertex
+    std::vector<float>         positions;     // x,y,z per vertex
+    std::vector<float>         normals;       // x,y,z per vertex
+    std::vector<std::uint32_t> indices;       // three per triangle
+    std::vector<float>         edgeSegments;  // x,y,z,x,y,z per line segment
+    std::vector<std::uint32_t> faceOfTriangle;  // B-Rep face number of every triangle
+    std::vector<float>         vertices;        // x,y,z per B-Rep vertex
 };
 
 /// `topoDsShape` points to a `const TopoDS_Shape`.
@@ -33,5 +33,5 @@ struct BRepTessellation {
 ///                          (0.05 - 0.2 mm is typical for display)
 ///   angularDeflectionRad : max angle between adjacent facets (0.3 - 0.5 typical)
 BRepTessellation TessellateShape(const void* topoDsShape,
-   double linearDeflectionMm,
-   double angularDeflectionRad);
+                                 double linearDeflectionMm,
+                                 double angularDeflectionRad);

@@ -44,6 +44,7 @@ CadGL/
 │   │   ├── SceneNode.h             Node base class, GroupNode
 │   │   ├── MeshNode.h              triangles + edges (B-Rep, STL)
 │   │   ├── PointCloudNode.h        points
+│   │   ├── CurveNode.h             lines / arcs, drawn as polylines
 │   │   ├── Scene.h                 owns the tree, hands out node IDs
 │   │   ├── StlLoader.h             binary + ASCII STL
 │   │   ├── Renderer.h              draws one frame
@@ -68,6 +69,17 @@ CadGL/
     ├── MainWindow.xaml(.cs)        control panel + scene tree
     ├── GLViewportHost.cs           HwndHost: child window, mouse → camera
     ├── SceneItem.cs                one row of the scene tree
+    ├── NoPickCursor.cs             the red "cannot pick" mouse pointer
+    ├── Model/                      ── model: no drawing code, no "using CadBridge" ──
+    │   ├── IEntity.cs              IEntity, IGeometry, ITopology
+    │   ├── Arc.cs                  Arc (geometry), Point3
+    │   └── Edge.cs                 Edge (topology: holds a curve)
+    ├── ViewModels/                 ── view models: know how to show an entity ──
+    │   ├── IDrawable.cs            interface with Draw()
+    │   ├── ArcVM.cs                takes an IEntity, builds and draws its arc
+    │   └── NodeVM.cs               places an existing part / group (was Entity.cs)
+    ├── Transform.cs                4x4 matrices for SetNodeTransform
+    ├── FixedStepClock.cs           fixed time step for simulations
     └── DemoGeometry.cs             test box and point cloud
 ```
 
@@ -75,7 +87,7 @@ CadGL/
 
 | Dependency | Needed by | Purpose | How to get it |
 |---|---|---|---|
-| **GLEW** 2.1+ | CadCore.GL | Loads the OpenGL 4.x functions from the driver | vcpkg (below) |
+| **GLEW** 2.1+ | CadCore.GL | Loads the OpenGL 4.x functions from the driver | `glew-2.3.1` folder next to the `.sln` (below) |
 | **opengl32.lib** | CadBridge.CLI | Windows' OpenGL entry point | Windows SDK |
 | gdi32 / user32 | CadBridge.CLI | Pixel format, device context | Windows SDK |
 | C++/CLI support | CadBridge.CLI | Compiling `/clr` code | VS Installer → *C++/CLI support for build tools* |
@@ -91,23 +103,23 @@ A graphics driver with **OpenGL 4.5 or newer** is required (4.6 is used when pre
 
 1. Visual Studio Installer: workloads *Desktop development with C++* and *.NET desktop
    development*, plus the individual component *C++/CLI support for v145 build tools*.
-2. One-time vcpkg setup, in a *Developer PowerShell* in the solution folder:
-   ```
-   vcpkg integrate install
-   vcpkg x-update-baseline --add-initial-baseline
-   ```
-   The second command writes a `builtin-baseline` line into `vcpkg.json`; the copy of
-   vcpkg bundled with Visual Studio needs it.
+2. Put GLEW in a folder `glew-2.3.1` next to `CadGL.sln`, with `include\GL\glew.h`,
+   `lib\Debug\x64\glew32sd.lib` and `lib\Release\x64\glew32s.lib` (see the note below).
 3. Open `CadGL.sln`, choose **x64**, set `CadRenderer.WPF` as start-up project, build.
-   GLEW is downloaded and built automatically on the first build (static library, so no
-   extra DLL has to be shipped).
 
 Notes
 - **Visual Studio 2022:** change `<PlatformToolset>v145</PlatformToolset>` to `v143` in both
   `.vcxproj` files, and `net10.0` to `net8.0` in the bridge and the `.csproj`.
-- **Without vcpkg:** download the GLEW binaries, add their `include` and `lib\Release\x64`
-  folders to both C++ projects, link `glew32.lib`, remove the `GLEW_STATIC` define, and
-  copy `glew32.dll` next to the `.exe`.
+- **GLEW from a folder (how the two C++ projects are set up now):** vcpkg is switched off in
+  both projects. They expect GLEW in `glew-2.3.1` next to `CadGL.sln`, through two user
+  macros defined in each `.vcxproj`:
+  `$(GLEW_INCLUDES)` = `$(SolutionDir)glew-2.3.1\include` (C/C++ > Additional Include
+  Directories) and `$(GLEW_LIB_INCLUDES)` = `$(SolutionDir)glew-2.3.1\lib\$(Configuration)\$(Platform)`
+  (CadCore.GL > Librarian > Additional Library Directories). Debug links
+  `glew32sd.lib;glew32d.lib`, Release links `glew32s.lib;glew32.lib`; the static one is
+  listed first and, with `GLEW_STATIC` defined, is the one used, so no GLEW DLL is deployed.
+  To use vcpkg instead, remove the macros and the `<Lib>` entries and set
+  `VcpkgEnableManifest` back to `true`.
 - Build from Visual Studio or `msbuild`; `dotnet build` cannot build the C++ projects.
 
 ## Where each requirement lives
@@ -207,6 +219,83 @@ Several entities can be selected at once:
   a vertex is where edges end or turn a corner. A CAD kernel can supply the real topology
   with `SetMeshTopology`.
 - In a point cloud a single point counts as a Vertex and the cloud as a Solid.
+- A curve counts as an Edge, its two ends as Vertices (index 0 = start, 1 = end).
+
+## Model entities and view models
+
+The model does not draw. A view model takes a model entity and implements `IDrawable`.
+
+```
+CadModel (no drawing code)                 CadRenderer.WPF (view models)
+--------------------------                 -----------------------------
+IEntity                                    IDrawable { void Draw(); }
+ ├─ IGeometry      Arc                      ├─ ArcVM(IEntity, viewport)   builds + draws an arc
+ └─ ITopology      Edge { Geometry }        └─ NodeVM(viewport, nodeId)   places an existing part
+    (container of the geometry it holds)
+```
+
+```csharp
+var arc  = new Arc(new Point3(0, 0, 0), radius: 50, startAngleDegrees: 0, sweepAngleDegrees: 90);
+var edge = new Edge(arc);                        // topology: a container holding the arc
+
+var vm = new ArcVM(edge, ViewportHost.Viewport); // or new ArcVM(arc, ...): same picture
+ViewportHost.Drawables.Add(vm);
+
+arc.SweepAngleDegrees = 180;                     // change the MODEL only
+ViewportHost.Redraw();                           // ArcVM.Draw() notices and updates the view
+```
+
+- `ArcVM`'s constructor cuts the arc into short straight pieces (never further than
+  `ChordToleranceMm`, default 0.01 mm, from the true arc) and creates a curve node with
+  `AddPolyline`. `Draw()` re-cuts and re-sends the points only if the arc's numbers changed.
+- Curves show in every display mode. They are picked as Edge (snapped to the nearest point
+  of the curve), Vertex (either end, within the snap tolerance) or Solid (the whole curve).
+- A view model for another entity type follows the same pattern: a class implementing
+  `IDrawable` whose constructor takes the `IEntity`, creates the scene node(s), and whose
+  `Draw()` brings them up to date.
+
+## Simulation and animation
+
+```csharp
+// A view model draws itself: override Draw, set Matrix, call base.Draw.
+class Slide : NodeVM
+{
+    public double Position;
+    public Slide(CadViewport viewport, int nodeId) : base(viewport, nodeId) { }
+    public override void Draw()
+    {
+        Matrix = Transform.Translation((float)Position, 0f, 0f);   // transform
+        base.Draw();                                               // draw
+    }
+}
+
+var slide = new Slide(vp, vp.AddMesh(...));
+ViewportHost.Drawables.Add(slide);
+ViewportHost.StartSimulation(OnContinuousRender);        // every display frame
+
+void OnContinuousRender(long elapsedMicroseconds)        // time since the previous call
+{
+    slide.Position += 50.0 * elapsedMicroseconds / 1e6;  // 1. advance the model (50 mm/s)
+    ViewportHost.Redraw();                               // 2. Draw() on every drawable, show the frame
+}
+
+ViewportHost.StopSimulation();                           // back to drawing on demand
+```
+
+- `Redraw()` calls `Draw()` on each `IDrawable` in `ViewportHost.Drawables`, then paints the
+  frame. `Draw` hands the placement (and changed geometry) to the engine; the engine paints
+  everything in one pass, because the order matters (surfaces, then edges, then transparent
+  parts sorted back to front, then the selection).
+- The callback runs on the UI thread once per frame the monitor displays (60, 120, 144 Hz ...),
+  driven by WPF's `CompositionTarget.Rendering`. `MeasuredFrequencyHz` reports the achieved rate.
+- For a model that must advance at an exact rate of its own (e.g. 128 Hz), use
+  `FixedStepClock`: it turns the varying frame time into equal steps.
+- **What is redrawn:** every frame redraws the whole visible scene; that is how GPU rendering
+  (and OpenSceneGraph) works. What the scene graph saves is the expensive part: a part's
+  triangles are uploaded to graphics memory once and stay there. Moving a part changes only
+  its 4x4 matrix. Only `AddMesh` / changed geometry uploads data again.
+- `Transform.cs` builds the matrices; `MaxElapsedMicroseconds` (default 0.1 s) limits the step
+  after a stall.
 
 ## B-Rep display
 

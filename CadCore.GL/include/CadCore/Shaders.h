@@ -17,12 +17,12 @@
 // =============================================================================
 
 namespace CadCore {
-   namespace Shaders {
+namespace Shaders {
 
-      // ----------------------------------------------------------------------------
-      // Blocks shared by all programs (concatenated in front of each stage body).
-      // ----------------------------------------------------------------------------
-      inline const char* const kFrameBlock = R"GLSL(
+// ----------------------------------------------------------------------------
+// Blocks shared by all programs (concatenated in front of each stage body).
+// ----------------------------------------------------------------------------
+inline const char* const kFrameBlock = R"GLSL(
 layout(std140, binding = 0) uniform FrameBlock {
     mat4 uView;
     mat4 uProj;
@@ -39,7 +39,7 @@ vec3 ViewVector(vec3 worldPos) {
 }
 )GLSL";
 
-      inline const char* const kLightBlock = R"GLSL(
+inline const char* const kLightBlock = R"GLSL(
 #define MAX_LIGHTS 8
 struct LightData {
     vec4 positionType;        // xyz = position (world, mm); w = 0 directional, 1 point, 2 spot
@@ -55,10 +55,10 @@ layout(std140, binding = 1) uniform LightBlock {
 };
 )GLSL";
 
-      // ----------------------------------------------------------------------------
-      // MESH - lit surfaces (B-Rep faces, STL triangles)
-      // ----------------------------------------------------------------------------
-      inline const char* const kMeshVertex = R"GLSL(
+// ----------------------------------------------------------------------------
+// MESH - lit surfaces (B-Rep faces, STL triangles)
+// ----------------------------------------------------------------------------
+inline const char* const kMeshVertex = R"GLSL(
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 
@@ -76,8 +76,8 @@ void main() {
 }
 )GLSL";
 
-      // Blinn-Phong:  colour = ambient + sum over lights of (diffuse + specular)
-      inline const char* const kMeshFragment = R"GLSL(
+// Blinn-Phong:  colour = ambient + sum over lights of (diffuse + specular)
+inline const char* const kMeshFragment = R"GLSL(
 in vec3 vWorldPos;
 in vec3 vNormal;
 
@@ -144,12 +144,12 @@ void main() {
 }
 )GLSL";
 
-      // ----------------------------------------------------------------------------
-      // GIZMO - the axis arrows. Not affected by scene lighting so the X/Y/Z colours
-      // always read clearly; a simple view-facing shade gives them volume.
-      // (Uses kMeshVertex.)
-      // ----------------------------------------------------------------------------
-      inline const char* const kGizmoFragment = R"GLSL(
+// ----------------------------------------------------------------------------
+// GIZMO - the axis arrows. Not affected by scene lighting so the X/Y/Z colours
+// always read clearly; a simple view-facing shade gives them volume.
+// (Uses kMeshVertex.)
+// ----------------------------------------------------------------------------
+inline const char* const kGizmoFragment = R"GLSL(
 in vec3 vWorldPos;
 in vec3 vNormal;
 uniform vec3 uColor;
@@ -161,15 +161,15 @@ void main() {
 }
 )GLSL";
 
-      // ----------------------------------------------------------------------------
-      // LINES - edge overlay / wireframe with a real pixel width.
-      //
-      // Core-profile OpenGL only guarantees 1-pixel lines (glLineWidth > 1 is
-      // deprecated and vendor dependent). To get reliable BOLD edges, a geometry
-      // shader turns every line segment into a screen-aligned quad that is
-      // uLineWidth pixels wide.
-      // ----------------------------------------------------------------------------
-      inline const char* const kLineVertex = R"GLSL(
+// ----------------------------------------------------------------------------
+// LINES - edge overlay / wireframe with a real pixel width.
+//
+// Core-profile OpenGL only guarantees 1-pixel lines (glLineWidth > 1 is
+// deprecated and vendor dependent). To get reliable BOLD edges, a geometry
+// shader turns every line segment into a screen-aligned quad that is
+// uLineWidth pixels wide.
+// ----------------------------------------------------------------------------
+inline const char* const kLineVertex = R"GLSL(
 layout(location = 0) in vec3 aPosition;
 uniform mat4 uModel;
 
@@ -178,7 +178,7 @@ void main() {
 }
 )GLSL";
 
-      inline const char* const kLineGeometry = R"GLSL(
+inline const char* const kLineGeometry = R"GLSL(
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
@@ -214,7 +214,7 @@ void main() {
 }
 )GLSL";
 
-      inline const char* const kLineFragment = R"GLSL(
+inline const char* const kLineFragment = R"GLSL(
 uniform vec4 uColor;
 out vec4 FragColor;
 
@@ -223,10 +223,10 @@ void main() {
 }
 )GLSL";
 
-      // ----------------------------------------------------------------------------
-      // POINTS - point clouds, drawn as round dots.
-      // ----------------------------------------------------------------------------
-      inline const char* const kPointVertex = R"GLSL(
+// ----------------------------------------------------------------------------
+// POINTS - point clouds, drawn as round dots.
+// ----------------------------------------------------------------------------
+inline const char* const kPointVertex = R"GLSL(
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aColor;      // only fed when the cloud has colours
 
@@ -244,7 +244,7 @@ void main() {
 }
 )GLSL";
 
-      inline const char* const kPointFragment = R"GLSL(
+inline const char* const kPointFragment = R"GLSL(
 in vec3 vColor;
 out vec4 FragColor;
 
@@ -256,19 +256,19 @@ void main() {
 }
 )GLSL";
 
-      // ----------------------------------------------------------------------------
-      // GRID - reference grid in the world XY plane, centred on the origin.
-      //
-      // The grid is ONE quad. The lines are computed per pixel in the fragment
-      // shader, so a 10 m grid with 1 mm cells costs the same as a small one (as
-      // geometry it would be 20 000 lines that turn into noise when zoomed out).
-      //
-      // Four line levels are drawn: 1x, 10x, 100x and 1000x the minor spacing. Each
-      // level fades out when its cells get smaller than a few pixels - zoomed in you
-      // see the 1 mm grid, zoomed out only the 10/100/1000 mm lines remain (the same
-      // behaviour as Blender's floor grid). The X axis is drawn red, the Y axis green.
-      // ----------------------------------------------------------------------------
-      inline const char* const kGridVertex = R"GLSL(
+// ----------------------------------------------------------------------------
+// GRID - reference grid in the world XY plane, centred on the origin.
+//
+// The grid is ONE quad. The lines are computed per pixel in the fragment
+// shader, so a 10 m grid with 1 mm cells costs the same as a small one (as
+// geometry it would be 20 000 lines that turn into noise when zoomed out).
+//
+// Four line levels are drawn: 1x, 10x, 100x and 1000x the minor spacing. Each
+// level fades out when its cells get smaller than a few pixels - zoomed in you
+// see the 1 mm grid, zoomed out only the 10/100/1000 mm lines remain (the same
+// behaviour as Blender's floor grid). The X axis is drawn red, the Y axis green.
+// ----------------------------------------------------------------------------
+inline const char* const kGridVertex = R"GLSL(
 layout(location = 0) in vec2 aCorner;     // (-1,-1) .. (1,1)
 uniform float uHalfSize;                  // half the grid width, mm
 out vec2 vPlane;                          // world XY of this fragment
@@ -279,7 +279,7 @@ void main() {
 }
 )GLSL";
 
-      inline const char* const kGridFragment = R"GLSL(
+inline const char* const kGridFragment = R"GLSL(
 in vec2 vPlane;
 uniform float uMinorSpacing;              // mm between the finest lines
 uniform vec3  uLineColor;
@@ -316,5 +316,5 @@ void main() {
 }
 )GLSL";
 
-   } // namespace Shaders
+} // namespace Shaders
 } // namespace CadCore

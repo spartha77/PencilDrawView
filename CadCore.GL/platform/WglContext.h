@@ -13,24 +13,24 @@
 
 namespace CadCore {
 
-   class WglContext : public IGLContext {
-      public:
-      /// `hwnd` is the HWND to render into. Requests OpenGL 4.6 core and falls
-      /// back to 4.5 core. Throws std::runtime_error if neither is available.
-      explicit WglContext(void* hwnd);
-      ~WglContext() override;
+class WglContext : public IGLContext {
+public:
+    /// `hwnd` is the HWND to render into. Requests OpenGL 4.6 core and falls
+    /// back to 4.5 core. Throws std::runtime_error if neither is available.
+    explicit WglContext(void* hwnd);
+    ~WglContext() override;
 
-      WglContext(const WglContext&) = delete;
-      WglContext& operator=(const WglContext&) = delete;
+    WglContext(const WglContext&) = delete;
+    WglContext& operator=(const WglContext&) = delete;
 
-      void MakeCurrent() override;
-      void SwapBuffers() override;
-      void OnWindowResized() override;
+    void MakeCurrent() override;
+    void SwapBuffers() override;
+    void OnWindowResized() override;
 
-      private:
-      void* m_hwnd = nullptr;   // HWND
-      void* m_hdc = nullptr;   // HDC
-      void* m_hglrc = nullptr;   // HGLRC
-   };
+private:
+    void* m_hwnd  = nullptr;   // HWND
+    void* m_hdc   = nullptr;   // HDC
+    void* m_hglrc = nullptr;   // HGLRC
+};
 
 } // namespace CadCore
